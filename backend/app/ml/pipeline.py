@@ -200,13 +200,15 @@ def merge_user_attributes(extracted: dict, provided: dict | None) -> dict:
 # ---- entry points -----------------------------------------------------------------
 
 
-def extract(text: str | None, images: list[Image.Image]) -> Extraction:
+def extract(text: str | None, images: list[Image.Image], embed: bool = True) -> Extraction:
+    """Read attributes from text and photos. `embed=False` skips the text embeddings: the report form's live preview
+    never uses them, and computing them loads two neural models (MiniLM and CLIP), which is slow and memory hungry."""
     parsed = parse_text(text)
     results = [analyze_image(im) for im in images]
     attributes = fuse(parsed, results)
 
     text_emb = clip_text_emb = None
-    if text and text.strip():
+    if embed and text and text.strip():
         text_emb = text_embedder.embed_text(text.strip())
         clip_text_emb = clip.embed_texts([text.strip()])[0]
     return Extraction(

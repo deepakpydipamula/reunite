@@ -88,7 +88,7 @@ async def extract_preview(request: Request, _: User = Depends(current_user)) -> 
 
     def run() -> dict:
         images = [media.open_upload(p) for p in photos[:3]]
-        ex = pipeline.extract(text, images)
+        ex = pipeline.extract(text, images, embed=False)  # the preview shows attributes only, so skip the embedding models
         attrs = ex.attributes
         if kind == "found":  # suggest privacy for what verifies an owner
             for f in items_svc.DEFAULT_HIDDEN_FIELDS:
