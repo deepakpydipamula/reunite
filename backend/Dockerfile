@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt backend/requirements.txt
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \n    && pip install --no-cache-dir -r backend/requirements.txt \
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r backend/requirements.txt \
     && python -m spacy download en_core_web_sm
 
 COPY . .
