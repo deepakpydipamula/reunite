@@ -99,13 +99,34 @@ const pin = (n: number, on: boolean) => {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 };
 
+/** True when this browser can give us a WebGL context. Cesium cannot draw anything without one. */
+function webglAvailable(): boolean {
+  try {
+    const probe = document.createElement("canvas");
+    const gl = probe.getContext("webgl2") || probe.getContext("webgl") || probe.getContext("experimental-webgl");
+    return !!gl;
+  } catch {
+    return false;
+  }
+}
+
 export function createCampusScene({ host, dive = false, pickups = true, range: viewRange = RANGE, onPick, onGround, onFail }: Options): CampusScene | null {
   const ion = import.meta.env.VITE_CESIUM_ION_TOKEN as string | undefined;
   const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
+  // No WebGL (hardware acceleration off, blocked GPU, some remote desktops): skip Cesium entirely and let the page
+  // show its own fallback, instead of Cesium's blocking "Error constructing CesiumWidget" dialog.
+  if (!webglAvailable()) {
+    console.warn("WebGL is not available in this browser, so the campus map is disabled");
+    onFail();
+    return null;
+  }
+
   let viewer: Viewer;
   try {
     viewer = new Viewer(host, {
+      // We show our own fallback; Cesium's built-in error dialog would cover the page and block the buttons.
+      showRenderLoopErrors: false,
       baseLayer: false,
       baseLayerPicker: false,
       geocoder: false,

@@ -148,7 +148,7 @@ export default function Campus() {
         )}
         <div className="campus__fallback" hidden={!failed}>
           <strong>The 3D map isn't available.</strong>
-          <span>The pickup spots are listed beside the map.</span>
+          <span>Your browser could not start WebGL. Turning on hardware acceleration in the browser settings usually fixes it. The pickup spots are listed beside the map.</span>
         </div>
       </div>
     </div>
