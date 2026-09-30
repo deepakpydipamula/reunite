@@ -35,10 +35,28 @@ export default function SignIn() {
   const [err, setErr] = useState("");
   const [wait, setWait] = useState(0);
   const [demo, setDemo] = useState<string | null>(null);
+  const [waking, setWaking] = useState(false);
   const codeEl = useRef<HTMLInputElement>(null);
 
-  // Demo mode: the backend says which code it will accept, so the page can show it.
-  useEffect(() => { api.authConfig().then((c) => setDemo(c.demo_otp)).catch(() => undefined); }, []);
+  // Demo mode: the backend says which code it will accept, so the page can show it. A free host puts the server to
+  // sleep when idle, so the first tries can fail: keep asking for a while instead of giving up after one miss.
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      for (let i = 0; i < 10 && !dead; i++) {
+        try {
+          const c = await api.authConfig();
+          if (!dead) { setDemo(c.demo_otp); setWaking(false); }
+          return;
+        } catch {
+          if (!dead) setWaking(true);
+          await new Promise((r) => setTimeout(r, 4000));
+        }
+      }
+      if (!dead) setWaking(false);
+    })();
+    return () => { dead = true; };
+  }, []);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -155,6 +173,10 @@ export default function SignIn() {
                 </button>
               </div>
             </form>
+          )}
+
+          {waking && !demo && !sent && (
+            <p className="auth__note" role="status">Waking the server. The demo accounts appear here in a moment, which can take up to a minute.</p>
           )}
 
           {demo && !sent && (
