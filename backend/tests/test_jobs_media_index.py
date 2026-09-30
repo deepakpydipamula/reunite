@@ -64,6 +64,27 @@ def test_queue_skips_jobs_that_are_not_due(db):
     assert jobs.process_next(db) is False
 
 
+def test_recover_stale_requeues_interrupted_jobs_and_fails_exhausted_ones(db):
+    u = fx.user(db, "a@x.edu")
+    it = fx.item(db, u, "lost", "bottle", status="processing")
+    cut_off = jobs.enqueue(db, "ingest", {"item_id": str(it.id)})
+    cut_off.status, cut_off.attempts = "running", 1            # the server died while this was running
+    looping = jobs.enqueue(db, "notify", {"item_id": str(uuid.uuid4())})
+    looping.status, looping.attempts = "running", jobs.MAX_ATTEMPTS   # it has crashed the server every time
+    done = jobs.enqueue(db, "notify", {"item_id": str(uuid.uuid4())})
+    done.status = "done"
+    db.commit()
+
+    assert jobs.recover_stale(db) == 2
+    db.refresh(cut_off), db.refresh(looping), db.refresh(done)
+    assert cut_off.status == "queued" and looping.status == "failed" and "interrupted" in looping.last_error
+    assert done.status == "done"                                # finished jobs are left alone
+
+    jobs.drain(db)                                              # the requeued job now runs and chains on
+    db.refresh(it)
+    assert it.status in ("open", "matched")
+
+
 # ---- media -------------------------------------------------------------------------
 
 def test_exif_is_stripped_and_public_copy_is_blurred(db):

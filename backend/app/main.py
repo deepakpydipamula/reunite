@@ -14,7 +14,7 @@ from . import db as dbmod
 from .api import admin, auth, claims, items, matches, media, notifications, reference, tags
 from .config import get_settings
 from .errors import install_error_handlers
-from .jobs import worker
+from .jobs import recover_stale, worker
 from .ml import registry
 from .models import Item
 from .services import media as media_svc, routing
@@ -51,6 +51,9 @@ async def lifespan(app: FastAPI):
         routed = routing.route_unclaimed(db)
         if routed:
             log.info("routed %s unclaimed items to the desk", routed)
+        recovered = recover_stale(db)
+        if recovered:
+            log.info("recovered %s jobs interrupted by a restart", recovered)
     stop = asyncio.Event()
     task = None
     if os.environ.get("DISABLE_WORKER") != "1":

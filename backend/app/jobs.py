@@ -108,6 +108,23 @@ def drain(db: Session, limit: int = 100) -> int:
     return n
 
 
+def recover_stale(db: Session) -> int:
+    """Requeue jobs left 'running' by a crash or restart. Call once at startup, before the worker starts.
+
+    There is one worker, so a job still marked running when the server boots was cut off (an out of memory kill
+    does this) and nothing will ever pick it up again: its report would stay at "Reading it" forever. A job that
+    has already used all its attempts is failed instead, so a job that keeps crashing the server cannot loop."""
+    now = datetime.now(timezone.utc)
+    stale = db.scalars(select(Job).where(Job.status == "running")).all()
+    for job in stale:
+        if job.attempts >= MAX_ATTEMPTS:
+            job.status, job.finished_at, job.last_error = "failed", now, "interrupted by a restart or crash"
+        else:
+            job.status, job.run_after = "queued", now
+    db.commit()
+    return len(stale)
+
+
 def _tick() -> bool:
     with dbmod.session_scope() as db:
         return process_next(db)
